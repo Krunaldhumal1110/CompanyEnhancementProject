@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "machine", uniqueConstraints = {@UniqueConstraint(columnNames = {"blockNo"})})
+@Table(name = "machine")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,6 +21,8 @@ public class Machine {
     private String machineNo;
     private String model;
     private String productNo;
-    @Column(unique = true)
+    @Column(name = "block_no")
+    // Note: blockNo is not enforced unique at the JPA level. Backend logic treats only non-completed
+    // machines as occupying a block; completed machines are considered free for reuse.
     private Integer blockNo;
 }

@@ -36,15 +36,22 @@ public class MachineController {
         return machineRepository.findById(id).orElse(null);
     }
     @PostMapping("/{id}/complete")
-    public Machine markComplete(@PathVariable Long id) {
+    public ResponseEntity<?> markComplete(@PathVariable Long id) {
         Optional<Machine> m = machineRepository.findById(id);
-        if (m.isPresent()) {
+        if (m.isEmpty()) {
+            return ResponseEntity.badRequest().body("Machine not found");
+        }
+        try {
             Machine machine = m.get();
             machine.setCompleted(true);
             machine.setStatus("COMPLETE");
-            return machineRepository.save(machine);
+            // Keep blockNo as historical record (do not set null if column is NOT NULL in DB)
+            Machine saved = machineRepository.save(machine);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            return ResponseEntity.status(500).body("Failed to mark complete: " + msg + "\nIf this mentions Duplicate entry, drop the unique index on machine.block_no as explained in the docs.");
         }
-        return null;
     }
     @GetMapping("/{id}/drawing")
     public ResponseEntity<byte[]> getDrawing(@PathVariable Long id) {
@@ -76,11 +83,13 @@ public class MachineController {
             @RequestParam("blockNo") Integer blockNo,
             @RequestPart("pdf") MultipartFile pdf
     ) {
-        if (blockNo == null || blockNo < 1 || blockNo > 12) {
-            return ResponseEntity.badRequest().body("Block number must be between 1 and 12.");
+        // Accept blocks up to the new grid size (5x3 => 15)
+        if (blockNo == null || blockNo < 1 || blockNo > 15) {
+            return ResponseEntity.badRequest().body("Block number must be between 1 and 15.");
         }
-        if (machineRepository.existsByBlockNo(blockNo)) {
-            return ResponseEntity.badRequest().body("Block number already occupied.");
+        // Only consider non-completed machines as occupying a block
+        if (machineRepository.existsByBlockNoAndCompletedFalse(blockNo)) {
+            return ResponseEntity.badRequest().body("Block number already occupied. Please choose a different block.");
         }
         String uploadDir = "uploads";
         String pdfPath = null;
@@ -107,8 +116,15 @@ public class MachineController {
                 .productNo(productNo)
                 .blockNo(blockNo)
                 .build();
-        machineRepository.save(machine);
-        return ResponseEntity.ok("File uploaded successfully: " + (pdfPath != null ? pdfPath : "no file"));
+        try {
+            machineRepository.save(machine);
+            return ResponseEntity.ok("File uploaded successfully: " + (pdfPath != null ? pdfPath : "no file"));
+        } catch (Exception e) {
+            // If DB still enforces a unique index on block_no this will show up as a constraint violation.
+            // Provide a clearer message and guidance.
+            String msg = e.getMessage();
+            return ResponseEntity.status(500).body("Database error while saving machine: " + msg + " - If you see Duplicate entry errors, drop the unique index on machine.block_no or run a migration to remove it.");
+        }
     }
     @DeleteMapping("/{id}")
     public void deleteMachine(@PathVariable Long id) {
@@ -151,7 +167,8 @@ public class MachineController {
                 byte[] content = Files.readAllBytes(file.toPath());
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_PDF);
-                headers.setContentDispositionFormData("inline", file.getName());
+                // Set Content-Disposition to inline only, so browser will display PDF
+                headers.add(HttpHeaders.CONTENT_DISPOSITION, "inline");
                 return ResponseEntity.ok().headers(headers).body(content);
             } catch (Exception e) {
                 return ResponseEntity.notFound().build();
@@ -169,7 +186,8 @@ public class MachineController {
                 byte[] content = Files.readAllBytes(file.toPath());
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_PDF);
-                headers.setContentDispositionFormData("inline", file.getName());
+                // headers.setContentDispositionFormData("inline", file.getName());
+                headers.add(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getName() + "\"");
                 return ResponseEntity.ok().headers(headers).body(content);
             } catch (Exception e) {
                 return ResponseEntity.notFound().build();

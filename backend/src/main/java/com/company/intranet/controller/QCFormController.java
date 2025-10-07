@@ -30,6 +30,12 @@ public class QCFormController {
 		this.qcFormRepository = qcFormRepository;
 	}
 
+	// New endpoint: get QC forms by machineId
+	@GetMapping("")
+	public ResponseEntity<?> getQCFormsByMachineId(@RequestParam Long machineId) {
+		return ResponseEntity.ok(qcFormRepository.findByMachineId(machineId));
+	}
+
 	@GetMapping("/{qcId}/pdf")
 	public ResponseEntity<byte[]> getQcFormPdf(@PathVariable Long qcId) {
 		Optional<QCForm> qcOpt = qcFormRepository.findById(qcId);
@@ -41,7 +47,27 @@ public class QCFormController {
 			byte[] content = Files.readAllBytes(file.toPath());
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_PDF);
+			// headers.setContentDispositionFormData("inline", file.getName());
+			headers.add(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getName() + "\"");
+			return ResponseEntity.ok().headers(headers).body(content);
+		} catch (Exception e) {
+			return ResponseEntity.notFound().build();
+		}
+	}
+
+	@GetMapping("/{qcId}/pdf/download")
+	public ResponseEntity<byte[]> getQcFormPdfDownload(@PathVariable Long qcId) {
+		Optional<QCForm> qcOpt = qcFormRepository.findById(qcId);
+		if (qcOpt.isEmpty() || qcOpt.get().getPdfPath() == null) {
+			return ResponseEntity.notFound().build();
+		}
+		try {
+			File file = new File(qcOpt.get().getPdfPath());
+			byte[] content = Files.readAllBytes(file.toPath());
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_PDF);
 			headers.setContentDispositionFormData("inline", file.getName());
+			// headers.add(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getName() + "\"");
 			return ResponseEntity.ok().headers(headers).body(content);
 		} catch (Exception e) {
 			return ResponseEntity.notFound().build();

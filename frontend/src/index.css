@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom utilities and animations used by components */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 400ms ease-out both;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* small helper for pulse used during loading */
+@layer components {
+  .pulse-loading {
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+}
+
+/* Header logo constraints */
+@layer utilities {
+  .logo-img { max-height: 40px; width: auto; }
+}
+
+@media (max-width: 640px) {
+  .logo-img { max-height: 34px !important; }
+  /* reduce container padding on very small screens */
+  .container { padding-left: 8px; padding-right: 8px; }
+  /* slightly larger buttons for touch */
+  button { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+}
+
+/* Mobile menu styles (tailwind utilities used in JSX) */
+.mobile-menu-enter { opacity: 0; transform: translateY(-6px); }
+.mobile-menu-enter-active { opacity: 1; transform: translateY(0); transition: all 200ms ease-in; }
+.mobile-menu-exit { opacity: 1; }
+.mobile-menu-exit-active { opacity: 0; transition: opacity 150ms ease-out; }
